@@ -1,0 +1,57 @@
+table {
+    border-collapse: collapse;
+}
+
+th, td, button, input[type=submit] {
+    border: 1px solid black;
+}
+
+th, td {
+    user-select: none;
+}
+
+tr:hover {
+    background-color: #ccc;
+}
+
+tr:active {
+    background-color: #555;
+    color: #fff;
+}
+
+thead > tr:hover,
+thead > tr:active {
+    background-color: white;
+    color: black;
+}
+
+tr[selected] {
+    background-color: #aaa;
+}
+
+button:hover, input[type=submit]:hover {
+    background-color: #ccc;
+}
+
+button:active, input[type=submit]:active {
+    background-color: #555;
+    color: #fff
+}
+
+input[class=red-border] {
+    border-color: red;
+}
+
+input[type=text] {
+    border-radius: 0px;
+}
+
+#deleteRecordsButton,
+#editRecordButton,
+#createRecordForm {
+    visibility: hidden;
+}
+
+#createRecordFormButton, #rudButtons {
+    display: inline flow-root;
+}
