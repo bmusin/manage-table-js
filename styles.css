@@ -23,10 +23,6 @@
     visibility: hidden;
 }
 
-.btn-group_rud {
-    display: inline flow-root;
-}
-
 .table {
     border-collapse: collapse;
 }

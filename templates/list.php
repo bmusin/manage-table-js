@@ -9,14 +9,11 @@ ob_start();
 ?>
 
 <button class='btn btn_create-back-combined' type="button">Create new record</button>
-<div class='btn-group_rud'>
-    <button class='btn btn_reload' type="button" >Reload records</button>
-    <button class='btn btn_delete' type="button" >Delete records</button>
-    <button class='btn btn_edit' type="button">Update record</button>
-</div>
+<button class='btn btn_reload' type="button" >Reload records</button>
+<button class='btn btn_delete' type="button" >Delete records</button>
+<button class='btn btn_edit'   type="button">Update record</button>
 
 <table class='table'>
-    <caption>Records</caption>
     <thead>
         <tr class='table__tr-head'>
             <th class='table__th'>ID</th>

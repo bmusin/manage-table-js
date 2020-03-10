@@ -19,7 +19,9 @@ const ERROR_MESSAGES = new Map([
 ])
 
 window.addEventListener('DOMContentLoaded', () => {
-  RecordsTable.setTableClickHandlers()
+  RecordsTable
+    .getRecordsTable()
+    .setTableClickHandlers()
   setupForm()
 
   getCreateButton()
@@ -52,7 +54,16 @@ function reloadButtonHandler (e) {
     }
   })
     .then((response) => response.json())
-    .then((data) => RecordsTable.rebuildTable(data.records, true))
+    .then((data) => {
+      hideEditButton()
+      hideDeleteButton()
+      RecordsTable
+        .getRecordsTable()
+        .deselectRows()
+        .setRecords(data.records)
+        .rebuildTable()
+        .makeVisible(true)
+    })
     .catch((error) => console.error('Error:', error))
 }
 
@@ -72,7 +83,13 @@ function deleteButtonHandler () {
     body: JSON.stringify({ ids: recordsToDelete() })
   })
     .then((response) => response.json())
-    .then((data) => RecordsTable.rebuildTable(data.records, true))
+    .then((data) => {
+      RecordsTable
+        .getRecordsTable()
+        .setRecords(data.records)
+        .rebuildTable()
+        .makeVisible(true)
+    })
     .catch((error) => console.error('Error:', error))
 }
 
@@ -83,7 +100,10 @@ function showForm (task) {
   setFormSubmitHandler(task)
   reattachFormHandler()
 
-  makeNonVisible(getRudButtons())
+  hideReloadButton()
+  hideEditButton()
+  hideDeleteButton()
+
   if (task.method === 'update') {
     populateForm()
     sessionStorage.setItem('selectedRow', getSelectedRecordTrId())
@@ -92,8 +112,10 @@ function showForm (task) {
   }
   makeVisible(getRecordForm())
 
-  RecordsTable.deselectRecordRows()
-  removeFromDom(getRecordsTable())
+  RecordsTable
+    .getRecordsTable()
+    .deselectRows()
+    .removeFromDom()
 }
 
 const validateForm = () => {
@@ -182,12 +204,16 @@ function createRecordSubmitHandler (task) {
         sessionStorage.setItem('state', 'AFTER_REQUEST')
 
         getRecordForm().reset()
-        RecordsTable.rebuildTable(data.records, true)
+        makeNonVisible(getRecordForm())
+        RecordsTable
+          .getRecordsTable()
+          .setRecords(data.records)
+          .rebuildTable()
+          .makeVisible(true)
 
         getCreateButton().click()
       } else {
         alert(ERROR_MESSAGES.get(data.message))
-
         reattachFormHandler()
       }
     })
@@ -206,11 +232,13 @@ function backButtonHandler () {
   }
   makeNonVisible(getRecordForm())
 
-  makeVisible(getRudButtons())
+  showReloadButton()
   getCreateButton().textContent = 'Create new record'
   getCreateButton().addEventListener('click', createRecordButtonHandler, RUN_LISTENER_ONCE)
 
-  insertIntoDom(getRecordsTable())
+  RecordsTable
+    .getRecordsTable()
+    .insertIntoDom()
   getReloadButton().click()
 }
 
@@ -290,9 +318,7 @@ const isOnlyOneRecordTrSelected = () => {
 const isRecordTrSelected = (tr) => tr.classList.contains('table__tr_selected')
 
 const getSelectedRecordTrId = () => (
-  getRecordTrId(
-    getRecordTrs().find((tr) => isRecordTrSelected(tr))
-  )
+  getRecordTrId(getRecordTrs().find((tr) => isRecordTrSelected(tr)))
 )
 
 const getRecordTrId = (tr) => (
@@ -315,23 +341,7 @@ const recordsToDelete = () => {
 }
 
 class RecordsTable {
-  get data () {
-    return this._data
-  }
-
-  set data (data) {
-    this._data = data
-  }
-
-  get tableNode () {
-    return this._tableNode
-  }
-
-  set tableNode (tn) {
-    this._tableNode = tn
-  }
-
-  static getRecordsTable (data) {
+  constructor (records) {
     const tableNode = document.querySelector('table')
 
     if (!tableNode) {
@@ -339,41 +349,50 @@ class RecordsTable {
       document.body.appendChild(tableNode)
     }
 
-    const recordsTable = new RecordsTable()
-    recordsTable.tableNode = tableNode
-    recordsTable.data = data
-    return recordsTable
+    this.setTableNode(tableNode)
+    this.setRecords(records)
   }
 
-  rebuildTable (shouldMakeVisible) {
+  static getRecordsTable (records) {
+    return new RecordsTable(records)
+  }
+
+  setTableNode (tableNode) {
+    this.tableNode = tableNode
+  }
+
+  getTableNode () {
+    return this.tableNode
+  }
+
+  rebuildTable () {
     return this
-      .builder(shouldMakeVisible)
-      .setCaption()
+      .deselectRows()
+      .builder()
       .setBody()
-      .setHeader()
+      .setTableClickHandlers()
   }
 
-  builder (shouldMakeVisible) {
-    const oldTn = this.tableNode
-    const newTn = document.createElement('table')
+  makeVisible (isVisible) {
+    this.getTableNode().style.visibility = isVisible ? 'visible' : 'hidden'
+  }
 
-    if (shouldMakeVisible) {
-      makeVisible(newTn)
-    } else {
-      makeNonVisible(newTn)
-    }
+  builder () {
+    const oldTn = this.getTableNode()
+    const newTn = document.createElement('table')
     newTn.classList.add('table')
+
     this.tableNode = newTn
     oldTn.parentNode.replaceChild(newTn, oldTn)
     return this
   }
 
-  setCaption () {
-    this.tableNode.createCaption().textContent = 'Records'
+  setRecords (records) {
+    this.records = records
     return this
   }
 
-  setHeader () {
+  setBody () {
     function createTh (thName) {
       const th = document.createElement('th')
       th.classList.add('table__th')
@@ -381,16 +400,6 @@ class RecordsTable {
       return th
     }
 
-    const tr = this.tableNode.createTHead().insertRow()
-    tr.classList.add('table__tr-head');
-    ['ID', 'Name', 'Surname', 'Patronymic',
-      'Document number', 'Subtype', "Owner's category"
-    ].forEach((name) => tr.appendChild(createTh(name)))
-
-    return this
-  }
-
-  setBody () {
     function createTd (tr, key, value) {
       const td = tr.insertCell()
       td.classList.add('table__td')
@@ -398,8 +407,14 @@ class RecordsTable {
       td.textContent = value
     }
 
-    this.data.forEach((record) => {
-      const tr = this.tableNode.insertRow()
+    const tr = this.getTableNode().createTHead().insertRow()
+    tr.classList.add('table__tr-head');
+    ['ID', 'Name', 'Surname', 'Patronymic',
+      'Document number', 'Subtype', "Owner's category"
+    ].forEach((name) => tr.appendChild(createTh(name)))
+
+    this.records.forEach((record) => {
+      const tr = this.getTableNode().insertRow()
       tr.classList.add('table__tr')
       createTd(tr, 'id', record.id)
       createTd(tr, 'name', record.name)
@@ -409,33 +424,32 @@ class RecordsTable {
       createTd(tr, 'subtype', record.subtype)
       createTd(tr, 'cat_id', `${record.letter} (${record.description})`)
     })
+
     return this
   }
 
-  static setTableClickHandlers () {
+  deselectRows () {
     getRecordTrs()
       .forEach((tr) => {
         tr.addEventListener('click', toggleRowSelection.bind(null, tr))
       })
+    return this
   }
 
-  static deselectRecordRows () {
+  setTableClickHandlers () {
     getRecordTrs()
       .forEach((tr) => {
-        if (isRecordTrSelected(tr)) {
-          deselectRecordTr(tr)
-        }
+        tr.addEventListener('click', toggleRowSelection.bind(null, tr))
       })
+    return this
   }
 
-  static rebuildTable (data, shouldMakeVisible) {
-    RecordsTable.deselectRecordRows()
+  insertIntoDom () {
+    this.getTableNode().style.display = 'block'
+  }
 
-    RecordsTable
-      .getRecordsTable(data)
-      .rebuildTable(shouldMakeVisible)
-
-    RecordsTable.setTableClickHandlers()
+  removeFromDom () {
+    this.getTableNode().style.display = 'none'
   }
 }
 
@@ -446,8 +460,6 @@ function setFormSubmitHandler (task) {
   }
 }
 
-const getRecordsTable = () => document.querySelector('.table')
-
 const getRecordForm = () => document.querySelector('.form')
 
 const getDocnumInput = () => document.querySelector('.form__input-text_doc_num')
@@ -455,8 +467,6 @@ const getDocnumInput = () => document.querySelector('.form__input-text_doc_num')
 const getSubmitButton = () => document.querySelector('.form__btn-submit')
 
 const getFormSubmitHandler = () => globalThis.formSubmitHandlerAcceptingTask
-
-const getRudButtons = () => document.querySelector('.btn-group_rud')
 
 const getCreateButton = () => document.querySelector('.btn_create-back-combined')
 
@@ -468,12 +478,12 @@ const getDeleteButton = () => document.querySelector('.btn_delete')
 
 const RUN_LISTENER_ONCE = { once: true }
 
-function showDeleteButton () {
-  makeVisible(getDeleteButton())
+function showReloadButton () {
+  makeVisible(getReloadButton())
 }
 
-function hideDeleteButton () {
-  makeNonVisible(getDeleteButton())
+function hideReloadButton () {
+  makeNonVisible(getReloadButton())
 }
 
 function showEditButton () {
@@ -484,18 +494,18 @@ function hideEditButton () {
   makeNonVisible(getEditButton())
 }
 
+function showDeleteButton () {
+  makeVisible(getDeleteButton())
+}
+
+function hideDeleteButton () {
+  makeNonVisible(getDeleteButton())
+}
+
 function makeVisible (el) {
   el.style.visibility = 'visible'
 }
 
 function makeNonVisible (el) {
   el.style.visibility = 'hidden'
-}
-
-function insertIntoDom (el) {
-  el.style.display = 'block'
-}
-
-function removeFromDom (el) {
-  el.style.display = 'none'
 }
