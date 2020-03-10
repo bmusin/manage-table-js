@@ -11,7 +11,6 @@ const DB_ERROR_RECORD_DOCNUM_ALREADY_EXISTS = '23005'
 
 const ERROR_MESSAGES = new Map([
   [DB_ERROR_CREATE_RECORD_SUCCESS, 'Success'],
-
   [DB_ERROR_CREATE_RECORD_UC_VIOLATION, 'That document number is already used.'],
   [DB_ERROR_CREATE_RECORD_EMPTY_FIELDS, 'Some input fields were empty.'],
   [DB_ERROR_UNKNOWN_CREATE_RECORD, 'Unknown error.'],
@@ -20,33 +19,31 @@ const ERROR_MESSAGES = new Map([
 ])
 
 window.addEventListener('DOMContentLoaded', () => {
-  globalThis.formSubmitHandlerAcceptingTask = null
-
   RecordsTable.setTableClickHandlers()
-  addCategoryInputToForm()
+  setupForm()
 
-  getCreateRecordButton()
+  getCreateButton()
     .addEventListener('click', createRecordButtonHandler, RUN_LISTENER_ONCE)
 
   getReloadButton()
-    .addEventListener('click', reloadRecordsHandler)
+    .addEventListener('click', reloadButtonHandler)
 
   getEditButton()
-    .addEventListener('click', editRecordButtonHandler)
+    .addEventListener('click', editButtonHandler)
 
-  getDeleteRecordsButton()
-    .addEventListener('click', deleteRecordsHandler)
+  getDeleteButton()
+    .addEventListener('click', deleteButtonHandler)
 
-  getDocNumInput()
+  getDocnumInput()
     .addEventListener('keydown', validateNumOnlyDocnum)
 })
 
 function createRecordButtonHandler (e) {
   e.preventDefault()
-  showCreateRecordForm({ method: 'create' })
+  showForm({ method: 'create' })
 }
 
-function reloadRecordsHandler (e) {
+function reloadButtonHandler (e) {
   e.preventDefault()
   fetch('/index.php/records', {
     method: 'GET',
@@ -59,13 +56,13 @@ function reloadRecordsHandler (e) {
     .catch((error) => console.error('Error:', error))
 }
 
-function editRecordButtonHandler (e) {
+function editButtonHandler (e) {
   e.preventDefault()
-  getCreateRecordButton().removeEventListener('click', createRecordButtonHandler)
-  showCreateRecordForm({ method: 'update' })
+  getCreateButton().removeEventListener('click', createRecordButtonHandler)
+  showForm({ method: 'update' })
 }
 
-function deleteRecordsHandler () {
+function deleteButtonHandler () {
   fetch('/index.php/records', {
     method: 'DELETE',
     headers: {
@@ -79,21 +76,16 @@ function deleteRecordsHandler () {
     .catch((error) => console.error('Error:', error))
 }
 
-function showCreateRecordForm (task) {
-  getCreateRecordButton().textContent = 'Back'
-  getCreateRecordButton()
-    .addEventListener(
-      'click',
-      backButtonHandler,
-      RUN_LISTENER_ONCE
-    )
+function showForm (task) {
+  getCreateButton().textContent = 'Back'
+  getCreateButton().addEventListener('click', backButtonHandler, RUN_LISTENER_ONCE)
 
   setFormSubmitHandler(task)
   reattachFormHandler()
 
   makeNonVisible(getRudButtons())
   if (task.method === 'update') {
-    populateUpdateForm()
+    populateForm()
     sessionStorage.setItem('selectedRow', getSelectedRecordTrId())
   } else if (task.method === 'create') {
     getRecordForm().reset()
@@ -106,8 +98,8 @@ function showCreateRecordForm (task) {
 
 const validateForm = () => {
   const prefix = 'form__input-text'
-  return ['name', 'surname', 'patronymic', 'doc_num', 'subtype']
-    .map((field) => document.querySelector(`.${prefix}_${field}`))
+  const invalidFields = ['name', 'surname', 'patronymic', 'doc_num', 'subtype']
+    .map((fieldName) => document.querySelector(`.${prefix}_${fieldName}`))
     .filter((el) => {
       if (el.value === '') {
         el.classList.add(`${prefix}_error`)
@@ -115,22 +107,20 @@ const validateForm = () => {
       }
       return false
     })
-    .reduce((_, el) => {
-      setTimeout(
-        () => el.classList.remove(`${prefix}_error`),
-        1000
-      )
-      return false
-    }, true)
+
+  invalidFields.forEach((field) => {
+    setTimeout(() => field.classList.remove(`${prefix}_error`), 1000)
+  })
+  return invalidFields.length === 0
 }
 
 function validateNumOnlyDocnum (e) {
   if (/^\D$/.test(e.key)) {
     e.preventDefault()
-    this.classList.add('form__input-text_error')
-    setTimeout(() => this.classList.remove('form__input-text_error'), 1000)
+    getDocnumInput().classList.add('form__input-text_error')
+    setTimeout(() => getDocnumInput().classList.remove('form__input-text_error'), 1000)
   } else {
-    this.classList.remove('form__input-text_error')
+    getDocnumInput().classList.remove('form__input-text_error')
   }
 }
 
@@ -151,7 +141,7 @@ const getCatValue = () => (
     .find((rb) => rb.checked).value
 )
 
-function populateUpdateForm () {
+function populateForm () {
   [...document.getElementById(getSelectedRecordTrId())
     .parentNode.children]
     .forEach((td) => {
@@ -186,17 +176,17 @@ function createRecordSubmitHandler (task) {
     body: JSON.stringify(requestBodyInJson)
   })
     .then((response) => response.json())
-    .then(({ message, records }) => {
-      if (message === DB_ERROR_CREATE_RECORD_SUCCESS) {
+    .then((data) => {
+      if (data.message === DB_ERROR_CREATE_RECORD_SUCCESS) {
         sessionStorage.removeItem('selectedRow')
         sessionStorage.setItem('state', 'AFTER_REQUEST')
 
         getRecordForm().reset()
-        RecordsTable.rebuildTable(records, true)
+        RecordsTable.rebuildTable(data.records, true)
 
-        getCreateRecordButton().click()
+        getCreateButton().click()
       } else {
-        alert(ERROR_MESSAGES.get(message))
+        alert(ERROR_MESSAGES.get(data.message))
 
         reattachFormHandler()
       }
@@ -205,12 +195,7 @@ function createRecordSubmitHandler (task) {
 }
 
 function reattachFormHandler () {
-  getRecordForm()
-    .addEventListener(
-      'submit',
-      getFormSubmitHandler(),
-      RUN_LISTENER_ONCE
-    )
+  getRecordForm().addEventListener('submit', getFormSubmitHandler(), RUN_LISTENER_ONCE)
 }
 
 function backButtonHandler () {
@@ -219,22 +204,17 @@ function backButtonHandler () {
   } else {
     sessionStorage.removeItem('state')
   }
-
-  getBackButton().textContent = 'Create new record'
   makeNonVisible(getRecordForm())
 
   makeVisible(getRudButtons())
-  insertIntoDom(getRecordsTable())
+  getCreateButton().textContent = 'Create new record'
+  getCreateButton().addEventListener('click', createRecordButtonHandler, RUN_LISTENER_ONCE)
 
-  getCreateRecordButton().addEventListener(
-    'click',
-    createRecordButtonHandler,
-    RUN_LISTENER_ONCE
-  )
+  insertIntoDom(getRecordsTable())
   getReloadButton().click()
 }
 
-function addCategoryInputToForm () {
+function setupForm () {
   let alreadyChecked = false
 
   fetch('/index.php/cats', {
@@ -278,18 +258,18 @@ function selectRecordTr (tr) {
   tr.classList.add('table__tr_selected')
 
   isOnlyOneRecordTrSelected() ? showEditButton() : hideEditButton()
-  showDeleteRecordsButton()
+  showDeleteButton()
 }
 
 function deselectRecordTr (tr) {
   tr.classList.remove('table__tr_selected')
 
   if (!isAnyRecordTrSelected()) {
-    hideDeleteRecordsButton()
+    hideDeleteButton()
     hideEditButton()
   } else {
     isOnlyOneRecordTrSelected() ? showEditButton() : hideEditButton()
-    showDeleteRecordsButton()
+    showDeleteButton()
   }
 }
 
@@ -323,14 +303,16 @@ const getRecordTrId = (tr) => (
 
 const getRecordTrs = () => [...document.querySelectorAll('.table__tr')]
 
-const recordsToDelete = () => (
-  getRecordTrs().reduce((ids, tr) => {
-    if (isRecordTrSelected(tr)) {
-      ids.push(getRecordTrId(tr))
-    }
-    return ids
-  }, [])
-)
+const recordsToDelete = () => {
+  const ids = []
+  getRecordTrs()
+    .forEach((tr) => {
+      if (isRecordTrSelected(tr)) {
+        ids.push(getRecordTrId(tr))
+      }
+    })
+  return ids
+}
 
 class RecordsTable {
   get data () {
@@ -468,7 +450,7 @@ const getRecordsTable = () => document.querySelector('.table')
 
 const getRecordForm = () => document.querySelector('.form')
 
-const getDocNumInput = () => document.querySelector('.form__input-text_doc_num')
+const getDocnumInput = () => document.querySelector('.form__input-text_doc_num')
 
 const getSubmitButton = () => document.querySelector('.form__btn-submit')
 
@@ -476,24 +458,22 @@ const getFormSubmitHandler = () => globalThis.formSubmitHandlerAcceptingTask
 
 const getRudButtons = () => document.querySelector('.btn-group_rud')
 
-const getCreateRecordButton = () => document.querySelector('.btn_create-back-combined')
-
-const getBackButton = getCreateRecordButton
+const getCreateButton = () => document.querySelector('.btn_create-back-combined')
 
 const getReloadButton = () => document.querySelector('.btn_reload')
 
 const getEditButton = () => document.querySelector('.btn_edit')
 
-const getDeleteRecordsButton = () => document.querySelector('.btn_delete')
+const getDeleteButton = () => document.querySelector('.btn_delete')
 
 const RUN_LISTENER_ONCE = { once: true }
 
-function showDeleteRecordsButton () {
-  makeVisible(getDeleteRecordsButton())
+function showDeleteButton () {
+  makeVisible(getDeleteButton())
 }
 
-function hideDeleteRecordsButton () {
-  makeNonVisible(getDeleteRecordsButton())
+function hideDeleteButton () {
+  makeNonVisible(getDeleteButton())
 }
 
 function showEditButton () {
