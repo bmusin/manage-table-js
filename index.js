@@ -1,3 +1,5 @@
+/* global alert, fetch, globalThis, sessionStorage */
+
 'use strict'
 
 const DB_ERROR_CREATE_RECORD_SUCCESS = '0'
@@ -46,10 +48,10 @@ window.addEventListener('DOMContentLoaded', (_) => {
   getDocNumInput().addEventListener('keydown', function (e) {
     if (/^\D$/.test(e.key)) {
       e.preventDefault()
-      this.classList.add('red-border')
-      setTimeout(() => this.classList.remove('red-border'), 1 * 1000)
+      this.classList.add('form__input-text_error')
+      setTimeout(() => this.classList.remove('form__input-text_error'), 1 * 1000)
     } else {
-      this.classList.remove('red-border')
+      this.classList.remove('form__input-text_error')
     }
   })
 })
@@ -74,8 +76,6 @@ function showCreateRecordForm (task) {
 
   makeVisible(getRudButtons(), false)
   if (task.method === 'update') {
-    let requestBodyInJson = getFormInput()
-    console.log('here ' + requestBodyInJson)
     populateUpdateForm()
 
     sessionStorage.setItem('selectedRow', getSelectedRecordTrId())
@@ -94,9 +94,9 @@ function backButtonHandler () {
   }
 
   getBackButton().textContent = 'Create new record'
-  makeVisible(createRecordForm, false)
+  makeVisible(getRecordForm(), false)
 
-  makeVisible(rudButtons, true)
+  makeVisible(getRudButtons(), true)
   insertIntoDom(getRecordsTable(), true)
 
   getCreateRecordFormButton().addEventListener(
@@ -109,35 +109,42 @@ function backButtonHandler () {
   getReloadButton().click()
 }
 
-const getFormInput = () => ({
-  name: document.querySelector('#create_name').value,
-  surname: document.querySelector('#create_surname').value,
-  patronymic: document.querySelector('#create_patronymic').value,
-  doc_num: document.querySelector('#create_doc_num').value,
-  subtype: document.querySelector('#create_subtype').value,
-  cat_id: getCatValue()
-})
+const getFormInput = () => {
+  const prefix = '.form__input-text'
+  return {
+    name: document.querySelector(`${prefix}_name`).value,
+    surname: document.querySelector(`${prefix}_surname`).value,
+    patronymic: document.querySelector(`${prefix}_patronymic`).value,
+    doc_num: document.querySelector(`${prefix}_doc_num`).value,
+    subtype: document.querySelector(`${prefix}_subtype`).value,
+    cat_id: getCatValue()
+  }
+}
 
-const validateForm = () => (
-  ['name', 'surname', 'patronymic', 'doc_num', 'subtype']
-    .map((field) => document.querySelector(`#create_${field}`))
+const validateForm = () => {
+  const prefix = 'form__input-text'
+  return ['name', 'surname', 'patronymic', 'doc_num', 'subtype']
+    .map((field) => document.querySelector(`.${prefix}_${field}`))
     .filter((el) =>
       el.value === ''
-        ? !!((() => el.classList.add('red-border'))(), true)
+        ? !!((() => el.classList.add(`${prefix}_error`))(), true)
         : false
     )
-    .reduce((_, el) => (
-        setTimeout(() => el.classList.remove('red-border'), 1 * 1000)
-        , false
-    ), true)
-)
+    .reduce((_, el) => {
+      setTimeout(
+        () => el.classList.remove(`${prefix}_error`),
+        1000
+      )
+      return false
+    }, true)
+}
 
 function createRecordSubmitHandler (task) {
   if (!validateForm()) {
     reattachFormHandler()
     return
   }
-  let requestBodyInJson = getFormInput()
+  const requestBodyInJson = getFormInput()
 
   requestBodyInJson.method = task.method
   if (task.method === 'update') {
@@ -147,7 +154,7 @@ function createRecordSubmitHandler (task) {
   fetch('/index.php/records', {
     method: 'PUT',
     headers: {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(requestBodyInJson)
@@ -178,7 +185,7 @@ function populateUpdateForm () {
       ['name', 'surname', 'patronymic', 'doc_num', 'subtype']
         .forEach((field) => {
           if (td.hasAttribute(field)) {
-            document.querySelector(`#create_${field}`).value = td.getAttribute(field)
+            document.querySelector(`.form__input-text_${field}`).value = td.getAttribute(field)
           }
         })
     })
@@ -187,15 +194,15 @@ function populateUpdateForm () {
 function reattachFormHandler () {
   getRecordForm()
     .addEventListener(
-        'submit',
-        getFormSubmitHandler(),
-        RUN_LISTENER_ONCE
+      'submit',
+      getFormSubmitHandler(),
+      RUN_LISTENER_ONCE
     )
 }
 
 const getCatValue = () => (
   [...document.querySelectorAll('input[name=cat_id]')]
-    .find(({ checked }) => checked).value
+    .find((rb) => rb.checked).value
 )
 
 function addCategoryInputToForm () {
@@ -235,7 +242,7 @@ function addCategoryInputToForm () {
 }
 
 function deselectRecordTr (tr) {
-  tr.removeAttribute('selected')
+  tr.classList.remove('table__tr_selected')
 
   if (!isAnyRecordTrSelected()) {
     hideDeleteRecordsButton()
@@ -247,7 +254,7 @@ function deselectRecordTr (tr) {
 }
 
 function selectRecordTr (tr) {
-  tr.setAttribute('selected', '')
+  tr.classList.add('table__tr_selected')
 
   isOnlyOneRecordTrSelected() ? showEditButton() : hideEditButton()
   showDeleteRecordsButton()
@@ -257,16 +264,16 @@ function toggleRowSelection (tr) {
   isRecordTrSelected(tr) ? deselectRecordTr(tr) : selectRecordTr(tr)
 }
 
-function reloadRecordsHandler (event) {
-  event.preventDefault()
+function reloadRecordsHandler (e) {
+  e.preventDefault()
   fetch('/index.php/records', {
     method: 'GET',
     headers: {
-      'Accept': 'application/json'
+      Accept: 'application/json'
     }
   })
     .then((response) => response.json())
-    .then(({ records }) => RecordsTable.rebuildTable(records, true))
+    .then((data) => RecordsTable.rebuildTable(data.records, true))
     .catch((error) => console.error('Error:', error))
 }
 
@@ -274,7 +281,7 @@ function deleteRecordsHandler () {
   fetch('/index.php/records', {
     method: 'DELETE',
     headers: {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ ids: recordsToDelete() })
@@ -288,22 +295,23 @@ const isAnyRecordTrSelected = () => [...getRecordTrs()].some(isRecordTrSelected)
 
 const isOnlyOneRecordTrSelected = () => {
   let selected = 0
-  return [...getRecordTrs()].every((tr) => (
-    isRecordTrSelected(tr) ? ++selected : () => {},
-    selected < 2
-  )) && selected !== 0
+  return [...getRecordTrs()].every((tr) => {
+    if (isRecordTrSelected(tr)) {
+      return ++selected
+    }
+    return selected < 2
+  }) && selected !== 0
 }
 
-const isRecordTrSelected = (tr) => tr.hasAttribute('selected')
+const isRecordTrSelected = (tr) => tr.classList.contains('table__tr_selected')
 
-const getRecordTrs = () => document.querySelectorAll('table[id=recordsTable] > tbody > tr')
+const getRecordTrs = () => document.querySelectorAll('.table__tr')
 
-const getRecordTrId = ({ children }) => {
-  let ret
-  [...children].some((td) => td.hasAttribute('id')
-    ? (ret = td.getAttribute('id'), true) : false)
-  return ret
-}
+const getRecordTrId = ({ children }) => (
+  [...children]
+    .find((td) => td.hasAttribute('id'))
+    .getAttribute('id')
+)
 
 const getSelectedRecordTrId = () => (
   getRecordTrId(
@@ -364,7 +372,7 @@ class RecordsTable {
     const newTn = document.createElement('table')
 
     makeVisible(newTn, shouldMakeVisible)
-    newTn.setAttribute('id', 'recordsTable')
+    newTn.classList.add('table')
     this.tableNode = newTn
     oldTn.parentNode.replaceChild(newTn, oldTn)
     return this
@@ -378,11 +386,13 @@ class RecordsTable {
   setHeader () {
     function createTh (thName) {
       const th = document.createElement('th')
+      th.classList.add('table__th')
       th.textContent = thName
       return th
     }
 
-    const tr = this.tableNode.createTHead().insertRow();
+    const tr = this.tableNode.createTHead().insertRow()
+    tr.classList.add('table__tr-head');
     ['ID', 'Name', 'Surname', 'Patronymic',
       'Document number', 'Subtype', "Owner's category"
     ].forEach((name) => tr.appendChild(createTh(name)))
@@ -393,12 +403,14 @@ class RecordsTable {
   setBody () {
     function createTd (tr, key, value) {
       const td = tr.insertCell()
+      td.classList.add('table__td')
       td.setAttribute(key, value)
       td.textContent = value
     }
 
     this.data.forEach((record) => {
       const tr = this.tableNode.insertRow()
+      tr.classList.add('table__tr')
       createTd(tr, 'id', record.id)
       createTd(tr, 'name', record.name)
       createTd(tr, 'surname', record.surname)
@@ -437,31 +449,29 @@ class RecordsTable {
   }
 }
 
-const getFormMethod = () => sessionStorage.getItem('method')
-
 const setFormMethod = (method) => sessionStorage.setItem('method', method)
 
 const removeMethod = () => sessionStorage.removeItem('method')
 
-const getRecordsTable = () => document.querySelector('#recordsTable')
+const getRecordsTable = () => document.querySelector('.table')
 
-const getRecordForm = () => document.querySelector('#createRecordForm')
+const getRecordForm = () => document.querySelector('.form')
 
-const getRudButtons = () => document.querySelector('#rudButtons')
+const getRudButtons = () => document.querySelector('.btn-group_rud')
 
-const getReloadButton = () => document.querySelector('#reloadRecordsButton')
+const getReloadButton = () => document.querySelector('.btn_reload')
 
-const getCreateRecordFormButton = () => document.querySelector('#createRecordFormButton')
+const getCreateRecordFormButton = () => document.querySelector('.btn_create-back-combined')
 
-const getDocNumInput = () => document.querySelector('#create_doc_num')
+const getDocNumInput = () => document.querySelector('.form__input-text_doc_num')
 
-const getSubmitButton = () => document.querySelector('#createFormButton')
+const getSubmitButton = () => document.querySelector('.form__btn-submit')
 
 const getBackButton = getCreateRecordFormButton
 
-const getEditButton = () => document.querySelector('#editRecordButton')
+const getEditButton = () => document.querySelector('.btn_edit')
 
-const getDeleteRecordsButton = () => document.querySelector('#deleteRecordsButton')
+const getDeleteRecordsButton = () => document.querySelector('.btn_delete')
 
 function setFormSubmitHandler (task) {
   globalThis.formSubmitHandlerAcceptingTask = (e) => {

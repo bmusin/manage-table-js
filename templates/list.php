@@ -8,55 +8,55 @@ $records = records();
 ob_start();
 ?>
 
-<button style="display: " type="button" id="createRecordFormButton">Create new record</button>
-<div id="rudButtons">
-    <button type="button" id="reloadRecordsButton">Reload records</button>
-    <button type="button" id="deleteRecordsButton">Delete records</button>
-    <button type="button" id="editRecordButton">Edit record</button>
+<button class='btn btn_create-back-combined' type="button">Create new record</button>
+<div class='btn-group_rud'>
+    <button class='btn btn_reload' type="button" >Reload records</button>
+    <button class='btn btn_delete' type="button" >Delete records</button>
+    <button class='btn btn_edit' type="button">Update record</button>
 </div>
 
-<table id="recordsTable" action="/index.php/test">
+<table class='table'>
     <caption>Records</caption>
     <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Surname</th>
-            <th>Patronymic</th>
-            <th>Document number</th>
-            <th>Subtype</th>
-            <th>Owner&#39;s category</th>
+        <tr class='table__tr-head'>
+            <th class='table__th'>ID</th>
+            <th class='table__th'>Name</th>
+            <th class='table__th'>Surname</th>
+            <th class='table__th'>Patronymic</th>
+            <th class='table__th'>Document number</th>
+            <th class='table__th'>Subtype</th>
+            <th class='table__th'>Owner&#39;s category</th>
         </tr>
     </thead>
     <tbody>
         <?php foreach ($records as $record) : ?>
-        <tr>
-            <td id="<?= $record['id'] ?>"><?= $record['id'] ?></td>
-            <td name="<?= $record['name'] ?>"><?= $record['name'] ?></td>
-            <td surname="<?= $record['surname'] ?>"><?= $record['surname'] ?></td>
-            <td patronymic="<?= $record['patronymic'] ?>"><?= $record['patronymic'] ?></td>
-            <td doc_num="<?= $record['doc_num'] ?>"><?= $record['doc_num'] ?></td>
-            <td subtype="<?= $record['subtype'] ?>"><?= $record['subtype'] ?></td>
-            <td cat="<?= $record['letter'] ?>"><?= $record['letter']." (${record['description']})"?></td>
+        <tr class='table__tr'>
+            <td class='table__td' id="<?= $record['id'] ?>"><?= $record['id'] ?></td>
+            <td class='table__td' name="<?= $record['name'] ?>"><?= $record['name'] ?></td>
+            <td class='table__td' surname="<?= $record['surname'] ?>"><?= $record['surname'] ?></td>
+            <td class='table__td' patronymic="<?= $record['patronymic'] ?>"><?= $record['patronymic'] ?></td>
+            <td class='table__td' doc_num="<?= $record['doc_num'] ?>"><?= $record['doc_num'] ?></td>
+            <td class='table__td' subtype="<?= $record['subtype'] ?>"><?= $record['subtype'] ?></td>
+            <td class='table__td' cat="<?= $record['letter'] ?>"><?= $record['letter']." (${record['description']})"?></td>
         </tr>
-    <?php endforeach ?>
+        <?php endforeach ?>
     </tbody>
 </table>
 
-<form id="createRecordForm" method="post">
+<form class='form' method="post">
     Name:
-    <input id="create_name" type="text" name="name"><br>
+    <input class='form__input-text form__input-text_name' type="text" name="name"><br>
     Surname:
-    <input id="create_surname" type="text" name="surname"><br>
+    <input class='form__input-text form__input-text_surname' type="text" name="surname"><br>
     Patronymic:
-    <input id="create_patronymic" type="text" name="patronymic"><br>
+    <input class='form__input-text form__input-text_patronymic' type="text" name="patronymic"><br>
     Document number:
-    <input id="create_doc_num" type="text" name="doc_num"><br>
+    <input class='form__input-text form__input-text_doc_num' type="text" name="doc_num"><br>
     Subtype:
-    <input id="create_subtype" type="text" name="subtype"><br>
+    <input class='form__input-text form__input-text_subtype' type="text" name="subtype"><br>
     Category (letter):
     <br>
-    <input id="createFormButton" type="submit" value="Submit">
+    <input class='form__btn-submit' type="submit" value="Submit">
 </form>
 
 <?php

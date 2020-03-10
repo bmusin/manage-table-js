@@ -1,57 +1,82 @@
-table {
-    border-collapse: collapse;
-}
-
-th, td, button, input[type=submit] {
+.btn {
     border: 1px solid black;
 }
 
-th, td {
-    user-select: none;
-}
-
-tr:hover {
-    background-color: #ccc;
-}
-
-tr:active {
+.btn:active {
     background-color: #555;
     color: #fff;
 }
 
-thead > tr:hover,
-thead > tr:active {
+.btn:hover {
+    background-color: #ccc;
+}
+
+.btn_create-back-combined {
+    display: inline flow-root;
+}
+
+.btn_edit {
+    visibility: hidden;
+}
+
+.btn_delete {
+    visibility: hidden;
+}
+
+.btn-group_rud {
+    display: inline flow-root;
+}
+
+.table {
+    border-collapse: collapse;
+}
+
+.table__tr:active {
+    background-color: #555;
+    color: #fff;
+}
+
+.table__tr:hover {
+    background-color: #ccc;
+}
+
+.table__tr-head:active,
+.table__tr-head:hover {
     background-color: white;
     color: black;
 }
 
-tr[selected] {
+.table__tr_selected {
     background-color: #aaa;
 }
 
-button:hover, input[type=submit]:hover {
-    background-color: #ccc;
+.table__th,
+.table__td {
+    border: 1px solid black;
+    user-select: none;
 }
 
-button:active, input[type=submit]:active {
+.form {
+    visibility: hidden;
+}
+
+.form__btn-submit {
+    border: 1px solid black;
+}
+
+.form__btn-submit:active {
     background-color: #555;
     color: #fff
 }
 
-input[class=red-border] {
-    border-color: red;
+.form__btn-submit:hover {
+    background-color: #ccc;
 }
 
-input[type=text] {
+.form__input-text {
     border-radius: 0px;
 }
 
-#deleteRecordsButton,
-#editRecordButton,
-#createRecordForm {
-    visibility: hidden;
-}
-
-#createRecordFormButton, #rudButtons {
-    display: inline flow-root;
+.form__input-text_error {
+    border-color: red;
 }
