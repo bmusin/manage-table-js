@@ -19,52 +19,69 @@ const ERROR_MESSAGES = new Map([
   [DB_ERROR_RECORD_DOCNUM_ALREADY_EXISTS, 'Record with this docnum already exists.']
 ])
 
-window.addEventListener('DOMContentLoaded', (_) => {
+window.addEventListener('DOMContentLoaded', () => {
   globalThis.formSubmitHandlerAcceptingTask = null
 
   RecordsTable.setTableClickHandlers()
+  addCategoryInputToForm()
 
-  getCreateRecordFormButton()
+  getCreateRecordButton()
     .addEventListener('click', createRecordButtonHandler, RUN_LISTENER_ONCE)
 
   getReloadButton()
     .addEventListener('click', reloadRecordsHandler)
 
-  // Not 'once' because serves one function, not two
-  // (as create button: create button and back button.
   getEditButton()
-    .addEventListener('click', (e) => {
-      e.preventDefault()
-      setFormMethod('update')
-      getCreateRecordFormButton().removeEventListener('click', createRecordButtonHandler)
-      showCreateRecordForm({ method: 'update' })
-    })
+    .addEventListener('click', editRecordButtonHandler)
 
   getDeleteRecordsButton()
     .addEventListener('click', deleteRecordsHandler)
 
-  addCategoryInputToForm()
-
-  getDocNumInput().addEventListener('keydown', function (e) {
-    if (/^\D$/.test(e.key)) {
-      e.preventDefault()
-      this.classList.add('form__input-text_error')
-      setTimeout(() => this.classList.remove('form__input-text_error'), 1 * 1000)
-    } else {
-      this.classList.remove('form__input-text_error')
-    }
-  })
+  getDocNumInput()
+    .addEventListener('keydown', validateNumOnlyDocnum)
 })
 
 function createRecordButtonHandler (e) {
   e.preventDefault()
-  setFormMethod('create')
   showCreateRecordForm({ method: 'create' })
 }
 
+function reloadRecordsHandler (e) {
+  e.preventDefault()
+  fetch('/index.php/records', {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json'
+    }
+  })
+    .then((response) => response.json())
+    .then((data) => RecordsTable.rebuildTable(data.records, true))
+    .catch((error) => console.error('Error:', error))
+}
+
+function editRecordButtonHandler (e) {
+  e.preventDefault()
+  getCreateRecordButton().removeEventListener('click', createRecordButtonHandler)
+  showCreateRecordForm({ method: 'update' })
+}
+
+function deleteRecordsHandler () {
+  fetch('/index.php/records', {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ ids: recordsToDelete() })
+  })
+    .then((response) => response.json())
+    .then((data) => RecordsTable.rebuildTable(data.records, true))
+    .catch((error) => console.error('Error:', error))
+}
+
 function showCreateRecordForm (task) {
-  getCreateRecordFormButton().textContent = 'Back'
-  getCreateRecordFormButton()
+  getCreateRecordButton().textContent = 'Back'
+  getCreateRecordButton()
     .addEventListener(
       'click',
       backButtonHandler,
@@ -74,39 +91,47 @@ function showCreateRecordForm (task) {
   setFormSubmitHandler(task)
   reattachFormHandler()
 
-  makeVisible(getRudButtons(), false)
+  makeNonVisible(getRudButtons())
   if (task.method === 'update') {
     populateUpdateForm()
-
     sessionStorage.setItem('selectedRow', getSelectedRecordTrId())
+  } else if (task.method === 'create') {
+    getRecordForm().reset()
   }
-  RecordsTable.deselectRecordRows()
-  insertIntoDom(getRecordsTable(), false)
+  makeVisible(getRecordForm())
 
-  makeVisible(getRecordForm(), true)
+  RecordsTable.deselectRecordRows()
+  removeFromDom(getRecordsTable())
 }
 
-function backButtonHandler () {
-  if (sessionStorage.getItem('state') !== 'AFTER_REQUEST') {
-    getRecordForm().removeEventListener('submit', getFormSubmitHandler())
+const validateForm = () => {
+  const prefix = 'form__input-text'
+  return ['name', 'surname', 'patronymic', 'doc_num', 'subtype']
+    .map((field) => document.querySelector(`.${prefix}_${field}`))
+    .filter((el) => {
+      if (el.value === '') {
+        el.classList.add(`${prefix}_error`)
+        return true
+      }
+      return false
+    })
+    .reduce((_, el) => {
+      setTimeout(
+        () => el.classList.remove(`${prefix}_error`),
+        1000
+      )
+      return false
+    }, true)
+}
+
+function validateNumOnlyDocnum (e) {
+  if (/^\D$/.test(e.key)) {
+    e.preventDefault()
+    this.classList.add('form__input-text_error')
+    setTimeout(() => this.classList.remove('form__input-text_error'), 1000)
   } else {
-    sessionStorage.removeItem('state')
+    this.classList.remove('form__input-text_error')
   }
-
-  getBackButton().textContent = 'Create new record'
-  makeVisible(getRecordForm(), false)
-
-  makeVisible(getRudButtons(), true)
-  insertIntoDom(getRecordsTable(), true)
-
-  getCreateRecordFormButton().addEventListener(
-    'click',
-    createRecordButtonHandler,
-    RUN_LISTENER_ONCE
-  )
-  removeMethod()
-
-  getReloadButton().click()
 }
 
 const getFormInput = () => {
@@ -121,22 +146,23 @@ const getFormInput = () => {
   }
 }
 
-const validateForm = () => {
-  const prefix = 'form__input-text'
-  return ['name', 'surname', 'patronymic', 'doc_num', 'subtype']
-    .map((field) => document.querySelector(`.${prefix}_${field}`))
-    .filter((el) =>
-      el.value === ''
-        ? !!((() => el.classList.add(`${prefix}_error`))(), true)
-        : false
-    )
-    .reduce((_, el) => {
-      setTimeout(
-        () => el.classList.remove(`${prefix}_error`),
-        1000
-      )
-      return false
-    }, true)
+const getCatValue = () => (
+  [...document.querySelectorAll('input[name=cat_id]')]
+    .find((rb) => rb.checked).value
+)
+
+function populateUpdateForm () {
+  [...document.getElementById(getSelectedRecordTrId())
+    .parentNode.children]
+    .forEach((td) => {
+      ['name', 'surname', 'patronymic', 'doc_num', 'subtype']
+        .forEach((field) => {
+          if (td.hasAttribute(field)) {
+            document.querySelector(`.form__input-text_${field}`)
+              .value = td.getAttribute(field)
+          }
+        })
+    })
 }
 
 function createRecordSubmitHandler (task) {
@@ -144,8 +170,8 @@ function createRecordSubmitHandler (task) {
     reattachFormHandler()
     return
   }
-  const requestBodyInJson = getFormInput()
 
+  const requestBodyInJson = getFormInput()
   requestBodyInJson.method = task.method
   if (task.method === 'update') {
     requestBodyInJson.id = sessionStorage.getItem('selectedRow')
@@ -168,7 +194,7 @@ function createRecordSubmitHandler (task) {
         getRecordForm().reset()
         RecordsTable.rebuildTable(records, true)
 
-        getCreateRecordFormButton().click()
+        getCreateRecordButton().click()
       } else {
         alert(ERROR_MESSAGES.get(message))
 
@@ -176,19 +202,6 @@ function createRecordSubmitHandler (task) {
       }
     })
     .catch((error) => console.error('Error:', error))
-}
-
-function populateUpdateForm () {
-  [...document.getElementById(getSelectedRecordTrId())
-    .parentNode.children]
-    .forEach((td) => {
-      ['name', 'surname', 'patronymic', 'doc_num', 'subtype']
-        .forEach((field) => {
-          if (td.hasAttribute(field)) {
-            document.querySelector(`.form__input-text_${field}`).value = td.getAttribute(field)
-          }
-        })
-    })
 }
 
 function reattachFormHandler () {
@@ -200,10 +213,26 @@ function reattachFormHandler () {
     )
 }
 
-const getCatValue = () => (
-  [...document.querySelectorAll('input[name=cat_id]')]
-    .find((rb) => rb.checked).value
-)
+function backButtonHandler () {
+  if (sessionStorage.getItem('state') !== 'AFTER_REQUEST') {
+    getRecordForm().removeEventListener('submit', getFormSubmitHandler())
+  } else {
+    sessionStorage.removeItem('state')
+  }
+
+  getBackButton().textContent = 'Create new record'
+  makeNonVisible(getRecordForm())
+
+  makeVisible(getRudButtons())
+  insertIntoDom(getRecordsTable())
+
+  getCreateRecordButton().addEventListener(
+    'click',
+    createRecordButtonHandler,
+    RUN_LISTENER_ONCE
+  )
+  getReloadButton().click()
+}
 
 function addCategoryInputToForm () {
   let alreadyChecked = false
@@ -241,6 +270,17 @@ function addCategoryInputToForm () {
     .catch((error) => console.error('Error:', error))
 }
 
+function toggleRowSelection (tr) {
+  isRecordTrSelected(tr) ? deselectRecordTr(tr) : selectRecordTr(tr)
+}
+
+function selectRecordTr (tr) {
+  tr.classList.add('table__tr_selected')
+
+  isOnlyOneRecordTrSelected() ? showEditButton() : hideEditButton()
+  showDeleteRecordsButton()
+}
+
 function deselectRecordTr (tr) {
   tr.classList.remove('table__tr_selected')
 
@@ -253,74 +293,38 @@ function deselectRecordTr (tr) {
   }
 }
 
-function selectRecordTr (tr) {
-  tr.classList.add('table__tr_selected')
-
-  isOnlyOneRecordTrSelected() ? showEditButton() : hideEditButton()
-  showDeleteRecordsButton()
-}
-
-function toggleRowSelection (tr) {
-  isRecordTrSelected(tr) ? deselectRecordTr(tr) : selectRecordTr(tr)
-}
-
-function reloadRecordsHandler (e) {
-  e.preventDefault()
-  fetch('/index.php/records', {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json'
-    }
-  })
-    .then((response) => response.json())
-    .then((data) => RecordsTable.rebuildTable(data.records, true))
-    .catch((error) => console.error('Error:', error))
-}
-
-function deleteRecordsHandler () {
-  fetch('/index.php/records', {
-    method: 'DELETE',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ ids: recordsToDelete() })
-  })
-    .then((response) => response.json())
-    .then(({ records }) => RecordsTable.rebuildTable(records, true))
-    .catch((error) => console.error('Error:', error))
-}
-
-const isAnyRecordTrSelected = () => [...getRecordTrs()].some(isRecordTrSelected)
+const isAnyRecordTrSelected = () => getRecordTrs().some(isRecordTrSelected)
 
 const isOnlyOneRecordTrSelected = () => {
   let selected = 0
-  return [...getRecordTrs()].every((tr) => {
+  for (const tr of getRecordTrs()) {
     if (isRecordTrSelected(tr)) {
-      return ++selected
+      if (++selected === 2) {
+        return false
+      }
     }
-    return selected < 2
-  }) && selected !== 0
+  }
+  return selected === 1
 }
 
 const isRecordTrSelected = (tr) => tr.classList.contains('table__tr_selected')
 
-const getRecordTrs = () => document.querySelectorAll('.table__tr')
+const getSelectedRecordTrId = () => (
+  getRecordTrId(
+    getRecordTrs().find((tr) => isRecordTrSelected(tr))
+  )
+)
 
-const getRecordTrId = ({ children }) => (
-  [...children]
+const getRecordTrId = (tr) => (
+  [...tr.children]
     .find((td) => td.hasAttribute('id'))
     .getAttribute('id')
 )
 
-const getSelectedRecordTrId = () => (
-  getRecordTrId(
-    [...getRecordTrs()].find((tr) => isRecordTrSelected(tr))
-  )
-)
+const getRecordTrs = () => [...document.querySelectorAll('.table__tr')]
 
 const recordsToDelete = () => (
-  [...getRecordTrs()].reduce((ids, tr) => {
+  getRecordTrs().reduce((ids, tr) => {
     if (isRecordTrSelected(tr)) {
       ids.push(getRecordTrId(tr))
     }
@@ -329,20 +333,6 @@ const recordsToDelete = () => (
 )
 
 class RecordsTable {
-  static getRecordsTable (data) {
-    const tableNode = document.querySelector('table')
-
-    if (!tableNode) {
-      const tableNode = document.createElement('table')
-      document.body.appendChild(tableNode)
-    }
-
-    const recordsTable = new RecordsTable()
-    recordsTable.tableNode = tableNode
-    recordsTable.data = data
-    return recordsTable
-  }
-
   get data () {
     return this._data
   }
@@ -359,6 +349,20 @@ class RecordsTable {
     this._tableNode = tn
   }
 
+  static getRecordsTable (data) {
+    const tableNode = document.querySelector('table')
+
+    if (!tableNode) {
+      const tableNode = document.createElement('table')
+      document.body.appendChild(tableNode)
+    }
+
+    const recordsTable = new RecordsTable()
+    recordsTable.tableNode = tableNode
+    recordsTable.data = data
+    return recordsTable
+  }
+
   rebuildTable (shouldMakeVisible) {
     return this
       .builder(shouldMakeVisible)
@@ -371,7 +375,11 @@ class RecordsTable {
     const oldTn = this.tableNode
     const newTn = document.createElement('table')
 
-    makeVisible(newTn, shouldMakeVisible)
+    if (shouldMakeVisible) {
+      makeVisible(newTn)
+    } else {
+      makeNonVisible(newTn)
+    }
     newTn.classList.add('table')
     this.tableNode = newTn
     oldTn.parentNode.replaceChild(newTn, oldTn)
@@ -449,30 +457,6 @@ class RecordsTable {
   }
 }
 
-const setFormMethod = (method) => sessionStorage.setItem('method', method)
-
-const removeMethod = () => sessionStorage.removeItem('method')
-
-const getRecordsTable = () => document.querySelector('.table')
-
-const getRecordForm = () => document.querySelector('.form')
-
-const getRudButtons = () => document.querySelector('.btn-group_rud')
-
-const getReloadButton = () => document.querySelector('.btn_reload')
-
-const getCreateRecordFormButton = () => document.querySelector('.btn_create-back-combined')
-
-const getDocNumInput = () => document.querySelector('.form__input-text_doc_num')
-
-const getSubmitButton = () => document.querySelector('.form__btn-submit')
-
-const getBackButton = getCreateRecordFormButton
-
-const getEditButton = () => document.querySelector('.btn_edit')
-
-const getDeleteRecordsButton = () => document.querySelector('.btn_delete')
-
 function setFormSubmitHandler (task) {
   globalThis.formSubmitHandlerAcceptingTask = (e) => {
     e.preventDefault()
@@ -480,30 +464,58 @@ function setFormSubmitHandler (task) {
   }
 }
 
+const getRecordsTable = () => document.querySelector('.table')
+
+const getRecordForm = () => document.querySelector('.form')
+
+const getDocNumInput = () => document.querySelector('.form__input-text_doc_num')
+
+const getSubmitButton = () => document.querySelector('.form__btn-submit')
+
 const getFormSubmitHandler = () => globalThis.formSubmitHandlerAcceptingTask
+
+const getRudButtons = () => document.querySelector('.btn-group_rud')
+
+const getCreateRecordButton = () => document.querySelector('.btn_create-back-combined')
+
+const getBackButton = getCreateRecordButton
+
+const getReloadButton = () => document.querySelector('.btn_reload')
+
+const getEditButton = () => document.querySelector('.btn_edit')
+
+const getDeleteRecordsButton = () => document.querySelector('.btn_delete')
 
 const RUN_LISTENER_ONCE = { once: true }
 
 function showDeleteRecordsButton () {
-  makeVisible(getDeleteRecordsButton(), true)
+  makeVisible(getDeleteRecordsButton())
 }
 
 function hideDeleteRecordsButton () {
-  makeVisible(getDeleteRecordsButton(), false)
+  makeNonVisible(getDeleteRecordsButton())
 }
 
 function showEditButton () {
-  makeVisible(getEditButton(), true)
+  makeVisible(getEditButton())
 }
 
 function hideEditButton () {
-  makeVisible(getEditButton(), false)
+  makeNonVisible(getEditButton())
 }
 
-function makeVisible (el, isVisible) {
-  el.style.visibility = isVisible ? 'visible' : 'hidden'
+function makeVisible (el) {
+  el.style.visibility = 'visible'
 }
 
-function insertIntoDom (el, toInsert) {
-  el.style.display = toInsert ? 'block' : 'none'
+function makeNonVisible (el) {
+  el.style.visibility = 'hidden'
+}
+
+function insertIntoDom (el) {
+  el.style.display = 'block'
+}
+
+function removeFromDom (el) {
+  el.style.display = 'none'
 }

@@ -31,6 +31,12 @@
     border-collapse: collapse;
 }
 
+.table__tr-head:active,
+.table__tr-head:hover {
+    background-color: white;
+    color: black;
+}
+
 .table__tr:active {
     background-color: #555;
     color: #fff;
@@ -40,13 +46,8 @@
     background-color: #ccc;
 }
 
-.table__tr-head:active,
-.table__tr-head:hover {
-    background-color: white;
-    color: black;
-}
-
-.table__tr_selected {
+.table__tr_selected,
+.table__tr_selected:hover {
     background-color: #aaa;
 }
 
