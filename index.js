@@ -352,29 +352,25 @@ class RecordsTable {
     }
 
     this._tableNode = tableNode
-    this.setRecords(records)
-    this.setTableClickHandlers()
+    this._setRecords(records)
+    this._setTableClickHandlers()
   }
 
   rebuild (records) {
     this
-      .setRecords(records)
-      .rebuildTable()
-      .makeVisible(true)
+      ._setRecords(records)
+    this
+      ._builder()
+      ._setBody()
+      ._setTableClickHandlers()
   }
 
-  rebuildTable () {
+  _setRecords (records) {
+    this.records = records
     return this
-      .builder()
-      .setBody()
-      .setTableClickHandlers()
   }
 
-  makeVisible (isVisible) {
-    this._tableNode.style.visibility = isVisible ? 'visible' : 'hidden'
-  }
-
-  builder () {
+  _builder () {
     const oldTn = this._tableNode
     const newTn = ce('table')
     newTn.classList.add('table')
@@ -384,20 +380,15 @@ class RecordsTable {
     return this
   }
 
-  setRecords (records) {
-    this.records = records
-    return this
-  }
-
-  setBody () {
-    function createTh (thName) {
+  _setBody () {
+    function _createTh (thName) {
       const th = ce('th')
       th.classList.add('table__th')
       th.textContent = thName
       return th
     }
 
-    function createTd (tr, key, value) {
+    function _createTd (tr, key, value) {
       const td = tr.insertCell()
       td.classList.add('table__td')
       td.setAttribute(key, value)
@@ -409,24 +400,24 @@ class RecordsTable {
     [
       'ID', 'Name', 'Surname', 'Patronymic',
       'Document number', 'Subtype', "Owner's category"
-    ].forEach(name => tr.appendChild(createTh(name)))
+    ].forEach(name => tr.appendChild(_createTh(name)))
 
     this.records.forEach(record => {
       const tr = this._tableNode.insertRow()
       tr.classList.add('table__tr')
-      createTd(tr, 'id', record.id)
-      createTd(tr, 'name', record.name)
-      createTd(tr, 'surname', record.surname)
-      createTd(tr, 'patronymic', record.patronymic)
-      createTd(tr, 'doc_num', record.doc_num)
-      createTd(tr, 'subtype', record.subtype)
-      createTd(tr, 'cat_id', `${record.letter} (${record.description})`)
+      _createTd(tr, 'id', record.id)
+      _createTd(tr, 'name', record.name)
+      _createTd(tr, 'surname', record.surname)
+      _createTd(tr, 'patronymic', record.patronymic)
+      _createTd(tr, 'doc_num', record.doc_num)
+      _createTd(tr, 'subtype', record.subtype)
+      _createTd(tr, 'cat_id', `${record.letter} (${record.description})`)
     })
 
     return this
   }
 
-  setTableClickHandlers () {
+  _setTableClickHandlers () {
     this._tableNode.addEventListener('click', ({ target: td }) => {
       const tr = td.parentNode
 
